@@ -38,9 +38,9 @@ body {
     margin: 5px 0;
     padding: 10px;
     background: #1f2937;
+    border-radius: 8px;
     border: 1px solid #374151;
     color: white;
-    border-radius: 8px;
     cursor: pointer;
 }
 
@@ -48,7 +48,6 @@ body {
 .main {
     width: 75%;
     padding: 20px;
-    overflow-y: auto;
 }
 
 /* CARD */
@@ -60,13 +59,13 @@ body {
     border: 1px solid #e5e7eb;
 }
 
-/* INPUTS */
+/* INPUT */
 input, select {
     padding: 10px;
     margin: 8px 0;
     width: 280px;
-    border: 1px solid #d1d5db;
     border-radius: 8px;
+    border: 1px solid #d1d5db;
 }
 
 /* BUTTON */
@@ -93,12 +92,6 @@ button {
     padding: 10px;
     text-align: center;
     cursor: pointer;
-    min-height: 70px;
-}
-
-.seat.highlight {
-    border: 2px solid #e63946;
-    background: rgba(230,57,70,0.08);
 }
 
 /* TOAST */
@@ -121,29 +114,29 @@ button {
 }
 
 /* MODAL BACKDROP */
-.modal-overlay {
+.modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(17,24,39,0.65);
+    background: rgba(17,24,39,0.6);
     display: none;
     align-items: center;
     justify-content: center;
     z-index: 10000;
 }
 
-.modal-overlay.active {
+.modal.active {
     display: flex;
 }
 
-/* ACTION POPUP (RESTORED) */
-.action-box {
+/* MODAL BOX */
+.modal-box {
     background: white;
-    width: 300px;
-    border-radius: 12px;
+    width: 320px;
     padding: 20px;
+    border-radius: 12px;
     text-align: center;
     animation: pop 0.2s ease;
 }
@@ -153,17 +146,20 @@ button {
     to { transform: scale(1); opacity: 1; }
 }
 
+.modal-box input, .modal-box select {
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* ACTION BUTTONS */
 .action-box button {
     width: 100%;
     margin: 6px 0;
-    padding: 10px;
-    border-radius: 8px;
 }
 
-.edit { background: #2563eb; }
-.move { background: #f59e0b; }
-.delete { background: #e63946; }
-.close { background: #6b7280; }
+.secondary { background: #2563eb; }
+.danger { background: #e63946; }
+.closeBtn { background: #6b7280; }
 </style>
 </head>
 
@@ -195,7 +191,6 @@ button {
     <input id="agency" placeholder="Agency">
 
     <select id="trainerSelect">
-        <option value="">Select Trainer</option>
         <option>Au</option>
         <option>Chanie</option>
         <option>Leo</option>
@@ -213,14 +208,33 @@ button {
 </div>
 
 <!-- ACTION POPUP -->
-<div id="actionModal" class="modal-overlay">
-    <div class="action-box">
+<div id="actionModal" class="modal">
+    <div class="modal-box">
         <h3 id="actionTitle"></h3>
 
-        <button class="edit" onclick="editVA()">Edit</button>
-        <button class="move" onclick="moveVA()">Move</button>
-        <button class="delete" onclick="deleteVA()">Delete</button>
-        <button class="close" onclick="closeAction()">Close</button>
+        <button onclick="openEdit()">Edit</button>
+        <button onclick="openMove()">Move</button>
+        <button class="danger" onclick="deleteVA()">Delete</button>
+        <button class="closeBtn" onclick="closeAction()">Close</button>
+    </div>
+</div>
+
+<!-- EDIT/MOVE MODAL -->
+<div id="editModal" class="modal">
+    <div class="modal-box">
+        <h3 id="editTitle"></h3>
+
+        <input id="modalName" placeholder="Name">
+        <input id="modalAgency" placeholder="Agency (if edit)">
+
+        <select id="modalTrainer" style="display:none;">
+            <option>Au</option>
+            <option>Chanie</option>
+            <option>Leo</option>
+        </select>
+
+        <button onclick="confirmModal()">Save</button>
+        <button class="closeBtn" onclick="closeEdit()">Cancel</button>
     </div>
 </div>
 
@@ -237,6 +251,7 @@ let trainers = JSON.parse(localStorage.getItem("va_data")) || {
 
 let currentTrainer = "Au";
 let selectedIndex = null;
+let mode = "";
 
 /* SAVE */
 function save() {
@@ -263,7 +278,7 @@ function assignVA() {
     let agency = document.getElementById("agency").value;
     let trainer = document.getElementById("trainerSelect").value;
 
-    if (!name || !agency || !trainer) return;
+    if (!name || !agency) return;
 
     trainers[trainer].push({ name, agency });
     save();
@@ -284,9 +299,6 @@ function searchVA(q) {
             if (trainers[t][i].name.toLowerCase().includes(q)) {
                 currentTrainer = t;
                 render();
-                setTimeout(() => {
-                    document.querySelectorAll(".seat")[i].classList.add("highlight");
-                }, 100);
                 return;
             }
         }
@@ -323,14 +335,13 @@ function render() {
     document.getElementById("occupancy").innerText = filled + "/10 seats";
 }
 
-/* ACTION POPUP */
+/* ACTION */
 function openAction(i) {
     selectedIndex = i;
     document.getElementById("actionModal").classList.add("active");
-    document.getElementById("actionTitle").innerText =
-        trainers[currentTrainer][i].name;
 }
 
+/* CLOSE ACTION */
 function closeAction() {
     document.getElementById("actionModal").classList.remove("active");
 }
@@ -339,38 +350,66 @@ function closeAction() {
 function deleteVA() {
     trainers[currentTrainer].splice(selectedIndex, 1);
     save();
-    closeAction();
     render();
+    closeAction();
     toast("Deleted");
 }
 
-/* EDIT */
-function editVA() {
-    let name = prompt("Edit Name");
-    let agency = prompt("Edit Agency");
+/* OPEN EDIT */
+function openEdit() {
+    mode = "edit";
+    let va = trainers[currentTrainer][selectedIndex];
 
-    if (!name || !agency) return;
+    document.getElementById("editTitle").innerText = "Edit VA";
+    document.getElementById("modalName").value = va.name;
+    document.getElementById("modalAgency").style.display = "block";
+    document.getElementById("modalAgency").value = va.agency;
 
-    trainers[currentTrainer][selectedIndex] = { name, agency };
-    save();
-    render();
+    document.getElementById("modalTrainer").style.display = "none";
+
+    document.getElementById("editModal").classList.add("active");
     closeAction();
 }
 
-/* MOVE */
-function moveVA() {
-    let t = prompt("Move to (Au, Chanie, Leo)");
+/* OPEN MOVE */
+function openMove() {
+    mode = "move";
 
-    if (!trainers[t]) return;
+    document.getElementById("editTitle").innerText = "Move VA";
+    document.getElementById("modalName").style.display = "none";
+    document.getElementById("modalAgency").style.display = "none";
+    document.getElementById("modalTrainer").style.display = "block";
 
-    let va = trainers[currentTrainer][selectedIndex];
+    document.getElementById("editModal").classList.add("active");
+    closeAction();
+}
 
-    trainers[t].push(va);
-    trainers[currentTrainer].splice(selectedIndex, 1);
+/* CONFIRM MODAL */
+function confirmModal() {
+
+    if (mode === "edit") {
+        let name = document.getElementById("modalName").value;
+        let agency = document.getElementById("modalAgency").value;
+
+        trainers[currentTrainer][selectedIndex] = { name, agency };
+
+    } else if (mode === "move") {
+        let t = document.getElementById("modalTrainer").value;
+
+        let va = trainers[currentTrainer][selectedIndex];
+        trainers[t].push(va);
+        trainers[currentTrainer].splice(selectedIndex, 1);
+    }
 
     save();
     render();
-    closeAction();
+    closeEdit();
+    toast("Updated");
+}
+
+/* CLOSE EDIT */
+function closeEdit() {
+    document.getElementById("editModal").classList.remove("active");
 }
 
 /* INIT */
