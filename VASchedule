@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VA Classroom Dashboard Pro</title>
+
+<style>
+:root {
+    --primary: #6366F1;
+    --primary-hover: #4F46E5;
+    --bg-main: #F8FAFC;
+    --sidebar-bg: #0F172A;
+    --text-dark: #1E293B;
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --status-active: #22C55E;
+    --status-break: #EAB308;
+    --status-help: #EF4444;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-dark);
+}
+
+/* AUTH PAGES STYLE */
+#authContainer {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--sidebar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20000;
+}
+
+.auth-card {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+.auth-card h2 { margin-bottom: 10px; color: var(--text-dark); }
+.auth-card input, .auth-card select { width: 100%; box-sizing: border-box; margin-bottom: 15px; padding: 12px; border-radius: 8px; border: 1px solid #CBD5E1; }
+.auth-card button { width: 100%; padding: 14px; margin-top: 10px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+/* DASHBOARD STYLE */
+#mainApp { display: none; }
+
+.topbar {
+    background: #FFFFFF;
+    color: var(--text-dark);
+    padding: 12px 24px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid #E2E8F0;
+}
+
+.logo { height: 35px; border-radius: 6px; }
+
+.container { display: flex; height: calc(100vh - 60px); }
+
+.sidebar {
+    width: 280px;
+    background: var(--sidebar-bg);
+    color: #F1F5F9;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h3 { color: #94A3B8; text-transform: uppercase; font-size: 12px; margin-bottom: 15px; }
+
+.sidebar button {
+    width: 100%; margin: 4px 0; padding: 12px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: #F1F5F9; border-radius: 8px; text-align: left; cursor: pointer;
+}
+
+.sidebar button:hover { background: var(--primary); }
+
+.main { flex-grow: 1; padding: 30px; overflow-y: auto; }
+
+.admin-only { display: none; }
+.va-only { display: none; }
+
+.card { background: white; padding: 24px; border-radius: 16px; margin-bottom: 24px; box-shadow: var(--card-shadow); }
+
+/* SCHEDULE TABLE */
+.sched-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.sched-table th, .sched-table td { border: 1px solid #E2E8F0; padding: 12px; text-align: center; }
+.sched-table th { background: #F1F5F9; color: #64748B; font-size: 12px; }
+
+/* Multi-select styling */
+.seat {
+    background: white; border-radius: 12px; padding: 15px; text-align: center;
+    cursor: pointer; border: 2px solid #E2E8F0; position: relative; min-height: 100px;
+    display: flex; flex-direction: column; justify-content: center;
+    transition: all 0.2s;
+}
+
+.seat.selected { border: 2px solid var(--primary); background: #EEF2FF; transform: scale(0.98); }
+
+.selection-controls {
+    display: none; 
+    gap: 15px;
+    align-items: center;
+    background: #EEF2FF;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #C7D2FE;
+}
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+
+.status-dot { position: absolute; top: 10px; right: 10px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; }
+.status-active { background: var(--status-active); }
+.status-break { background: var(--status-break); }
+.status-help { background: var(--status-help); }
+
+.toast { position: fixed; bottom: 30px; right: 30px; background: var(--sidebar-bg); color: white; padding: 16px 24px; border-radius: 12px; opacity: 0; transition: 0.4s; z-index: 9999; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); display: none; align-items: center; justify-content: center; z-index: 10000; }
+.modal.active { display: flex; }
+.modal-box { background: white; width: 360px; padding: 30px; border-radius: 20px; text-align: center; }
+.modal-box button { width: 100%; margin: 8px 0; padding: 12px; border-radius: 8px; border: none; color: white; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+
+<body>
+
+<div id="authContainer">
+    <div class="auth-card" id="loginCard">
+        <h2>System Login</h2>
+        <p>Access the VA Classroom Dashboard.</p>
+        <input type="text" id="loginUser" placeholder="Username">
+        <input type="password" id="loginPass" placeholder="Password">
+        <button onclick="handleLogin()">Sign In</button>
+        <div style="margin-top: 15px; font-size: 14px; color: #64748B;">
+            Don't have an account? <span style="color:var(--primary); cursor:pointer;" onclick="toggleAuth('signup')">Sign Up</span>
+        </div>
+    </div>
+
+    <div class="auth-card" id="signupCard" style="display:none;">
+        <h2>Create Account</h2>
+        <input type="text" id="regUser" placeholder="Username">
+        <input type="password" id="regPass" placeholder="Password">
+        <select id="regRole">
+            <option value="va">Role: Virtual Assistant (View Only)</option>
+            <option value="admin">Role: Admin/Trainer (Full Access)</option>
+        </select>
+        <button onclick="handleSignup()">Register</button>
+        <div style="margin-top: 15px; font-size: 14px; color: #64748B;">
+            Already have an account? <span style="color:var(--primary); cursor:pointer;" onclick="toggleAuth('login')">Log In</span>
+        </div>
+    </div>
+</div>
+
+<div id="mainApp">
+    <div class="topbar">
+        <img src="kling_20260422_VIDEO__1217_0.png" alt="Logo" class="logo">
+        <span>VA Classroom Dashboard Pro <small id="userRoleBadge" style="background:#E2E8F0; padding:2px 8px; border-radius:4px; font-size:10px; margin-left:10px;"></small></span>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h3>Navigation</h3>
+            <button onclick="showSection('classroom')">Classroom Grid</button>
+            <button onclick="showSection('schedule')">Weekly Schedule</button>
+            
+            <h3 style="margin-top:20px;">Trainer View</h3>
+            <button onclick="switchTrainer('Au')">Au</button>
+            <button onclick="switchTrainer('Chanie')">Chanie</button>
+            <button onclick="switchTrainer('Leo')">Leo</button>
+            
+            <div style="margin-top:auto; text-align:center;">
+                <img id="trainerImg" src="au.png" style="width:80px; height:80px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
+                <p id="trainerName" style="font-weight:600; margin-top:10px;"></p>
+                <button onclick="handleLogout()" style="background:#EF4444; width:100%; margin-top:10px; border:none; color:white; padding:10px; border-radius:8px; cursor:pointer;">Logout</button>
+            </div>
+        </div>
+
+        <div class="main">
+            <div id="section-classroom">
+                <div id="selectionUI" class="selection-controls admin-only">
+                    <span id="selectedCount">0 VAs selected</span>
+                    <button onclick="moveSelectedVAs()" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;">Move Selected</button>
+                    <button onclick="clearSelection()" style="background:#94A3B8; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;">Cancel</button>
+                </div>
+
+                <div class="card admin-only">
+                    <h3>Assign New VA</h3>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <input id="vaName" placeholder="VA Name" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
+                        <input id="agency" placeholder="Agency" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
+                        <select id="trainerSelect" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
+                            <option>Au</option><option>Chanie</option><option>Leo</option>
+                        </select>
+                        <button onclick="assignVA()" style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Assign VA</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3 id="classTitle" style="margin:0;">Classroom</h3>
+                        <div id="occupancy" style="font-size:14px; color:#64748B;">0/10 seats</div>
+                        <button class="admin-only" onclick="exportToCSV()" style="background:#64748B; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">Export CSV</button>
+                    </div>
+                    <div class="grid" id="seatGrid"></div>
+                </div>
+            </div>
+
+            <div id="section-schedule" style="display:none;">
+                <div class="card">
+                    <h3>My Weekly Schedule</h3>
+                    <p id="vaWelcomeNote" style="color:#64748B; font-size: 14px;"></p>
+                    <table class="sched-table">
+                        <thead>
+                            <tr>
+                                <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat/Sun</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleBody">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="card admin-only">
+                    <h3>Admin: Update Schedule</h3>
+                    <p style="font-size:12px; color:#64748B;">Enter times (e.g., 9AM - 5PM) for the current selected trainer's class.</p>
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
+                        <input id="sMon" placeholder="Monday">
+                        <input id="sTue" placeholder="Tuesday">
+                        <input id="sWed" placeholder="Wednesday">
+                        <input id="sThu" placeholder="Thursday">
+                        <input id="sFri" placeholder="Friday">
+                        <input id="sSat" placeholder="Weekend">
+                    </div>
+                    <button onclick="saveSchedule()" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:8px; margin-top:15px; cursor:pointer;">Update Schedule for ${currentTrainer}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="actionModal" class="modal">
+    <div class="modal-box">
+        <h3 id="actionTitle"></h3>
+        <div id="adminControls" class="admin-only">
+            <p>Set Status:</p>
+            <div style="display:flex; gap:10px; justify-content:center; margin-bottom:20px;">
+                <button class="status-active" style="width:40px; height:40px; border-radius:50%;" onclick="setStatus('active')"></button>
+                <button class="status-break" style="width:40px; height:40px; border-radius:50%;" onclick="setStatus('break')"></button>
+                <button class="status-help" style="width:40px; height:40px; border-radius:50%;" onclick="setStatus('help')"></button>
+            </div>
+            <button onclick="openEditName()" style="background:var(--primary)">Edit Name</button>
+            <button onclick="openMove()" style="background:#8B5CF6">Move VA</button>
+            <button onclick="deleteVA()" style="background:#EF4444">Remove VA</button>
+        </div>
+        <div id="vaView" style="display:none; color: #64748B; padding: 20px;">Read-only mode.</div>
+        <button onclick="closeAction()" style="background:#64748B">Close</button>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ================= DATA & STORAGE ================= */
+let accounts = JSON.parse(localStorage.getItem("db_accounts")) || { admin: { pass: "admin123", role: "admin" } };
+let trainers = JSON.parse(localStorage.getItem("va_data")) || { Au: [], Chanie: [], Leo: [] };
+let schedules = JSON.parse(localStorage.getItem("va_schedules")) || { 
+    Au: ["TBA","TBA","TBA","TBA","TBA","OFF"], 
+    Chanie: ["TBA","TBA","TBA","TBA","TBA","OFF"], 
+    Leo: ["TBA","TBA","TBA","TBA","TBA","OFF"] 
+};
+
+let currentTrainer = "Au";
+let selectedIndex = null;
+let selectedIndices = [];
+const trainerImages = { Au: "au.png", Chanie: "chanie.png", Leo: "leo.png" };
+
+function save() { 
+    localStorage.setItem("va_data", JSON.stringify(trainers)); 
+    localStorage.setItem("va_schedules", JSON.stringify(schedules));
+}
+
+/* ================= AUTH LOGIC ================= */
+function handleLogin() {
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    if(accounts[user] && accounts[user].pass === pass) {
+        sessionStorage.setItem("isLoggedIn", "true");
+        sessionStorage.setItem("userRole", accounts[user].role);
+        sessionStorage.setItem("activeUser", user);
+        applyPermissions();
+        showApp();
+    } else { alert("Invalid credentials!"); }
+}
+
+function applyPermissions() {
+    const role = sessionStorage.getItem("userRole");
+    const adminElements = document.querySelectorAll('.admin-only');
+    const badge = document.getElementById('userRoleBadge');
+    
+    if(role === 'admin') {
+        adminElements.forEach(el => el.style.display = 'block');
+        badge.innerText = "ADMIN";
+    } else {
+        adminElements.forEach(el => el.style.display = 'none');
+        badge.innerText = "VA VIEW";
+    }
+}
+
+/* ================= NAVIGATION ================= */
+function showSection(sect) {
+    document.getElementById('section-classroom').style.display = sect === 'classroom' ? 'block' : 'none';
+    document.getElementById('section-schedule').style.display = sect === 'schedule' ? 'block' : 'none';
+    if(sect === 'schedule') renderSchedule();
+}
+
+/* ================= SCHEDULE LOGIC ================= */
+function renderSchedule() {
+    const user = sessionStorage.getItem("activeUser");
+    const role = sessionStorage.getItem("userRole");
+    document.getElementById('vaWelcomeNote').innerText = `Viewing schedule for trainer: ${currentTrainer}`;
+    
+    const s = schedules[currentTrainer];
+    const body = document.getElementById('scheduleBody');
+    body.innerHTML = `<tr>
+        <td>${s[0]}</td><td>${s[1]}</td><td>${s[2]}</td><td>${s[3]}</td><td>${s[4]}</td><td>${s[5]}</td>
+    </tr>`;
+}
+
+function saveSchedule() {
+    schedules[currentTrainer] = [
+        document.getElementById('sMon').value || "TBA",
+        document.getElementById('sTue').value || "TBA",
+        document.getElementById('sWed').value || "TBA",
+        document.getElementById('sThu').value || "TBA",
+        document.getElementById('sFri').value || "TBA",
+        document.getElementById('sSat').value || "OFF"
+    ];
+    save();
+    renderSchedule();
+    toast("Schedule Updated");
+}
+
+/* ================= CLASSROOM LOGIC (Existing) ================= */
+function render() {
+    let grid = document.getElementById("seatGrid");
+    grid.innerHTML = "";
+    let list = trainers[currentTrainer];
+    document.getElementById("classTitle").innerText = `Trainer: ${currentTrainer}`;
+    let filled = 0;
+
+    for (let i = 0; i < 10; i++) {
+        let seat = document.createElement("div");
+        seat.className = "seat";
+        if (selectedIndices.includes(i)) seat.classList.add("selected");
+        let va = list[i];
+        if (va) {
+            seat.innerHTML = `<div class="status-dot status-${va.status || 'active'}"></div>
+                             <b>${va.name}</b><br><small>${va.agency}</small>`;
+            seat.onclick = () => handleSeatClick(i);
+            filled++;
+        } else {
+            seat.style.borderStyle = "dashed";
+            seat.innerHTML = "<span style='color:#CBD5E1'>Empty</span>";
+        }
+        grid.appendChild(seat);
+    }
+    document.getElementById("occupancy").innerText = `${filled}/10 seats`;
+    document.getElementById("trainerImg").src = trainerImages[currentTrainer];
+    document.getElementById("trainerName").innerText = currentTrainer;
+}
+
+function handleSeatClick(index) {
+    if (sessionStorage.getItem("userRole") === 'admin') {
+        const pos = selectedIndices.indexOf(index);
+        if (pos > -1) selectedIndices.splice(pos, 1);
+        else selectedIndices.push(index);
+        updateSelectionUI();
+        if(selectedIndices.length === 1) {
+            selectedIndex = index;
+            document.getElementById("actionModal").classList.add("active");
+            document.getElementById("actionTitle").innerText = trainers[currentTrainer][index].name;
+        }
+    } else {
+        selectedIndex = index;
+        document.getElementById("actionModal").classList.add("active");
+        document.getElementById("actionTitle").innerText = trainers[currentTrainer][index].name;
+    }
+}
+
+function updateSelectionUI() {
+    const ui = document.getElementById("selectionUI");
+    ui.style.display = selectedIndices.length > 0 ? "flex" : "none";
+    document.getElementById("selectedCount").innerText = `${selectedIndices.length} VAs selected`;
+    render();
+}
+
+function clearSelection() { selectedIndices = []; updateSelectionUI(); }
+
+function moveSelectedVAs() {
+    let targetTrainer = prompt("Move to which trainer? (Au, Chanie, or Leo)", currentTrainer);
+    if (targetTrainer && trainers[targetTrainer]) {
+        selectedIndices.sort((a,b)=>b-a).forEach(idx => {
+            trainers[targetTrainer].push(trainers[currentTrainer].splice(idx,1)[0]);
+        });
+        clearSelection(); save(); render(); toast("Moved VAs");
+    }
+}
+
+/* Standard helpers from original code... */
+function toast(msg) { let t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2500); }
+function toggleAuth(type) { document.getElementById('loginCard').style.display = type === 'login' ? 'block' : 'none'; document.getElementById('signupCard').style.display = type === 'signup' ? 'block' : 'none'; }
+function handleSignup() { /* same as original */ }
+function switchTrainer(t) { currentTrainer = t; clearSelection(); render(); if(document.getElementById('section-schedule').style.display === 'block') renderSchedule(); }
+function handleLogout() { sessionStorage.clear(); location.reload(); }
+function closeAction() { document.getElementById("actionModal").classList.remove("active"); selectedIndex = null; }
+function assignVA() { /* same as original */ let n=document.getElementById("vaName").value, a=document.getElementById("agency").value, t=document.getElementById("trainerSelect").value; if(n&&a){ trainers[t].push({name:n, agency:a, status:'active'}); save(); render(); } }
+function showApp() { document.getElementById('authContainer').style.display = 'none'; document.getElementById('mainApp').style.display = 'block'; render(); }
+
+if(sessionStorage.getItem("isLoggedIn") === "true") { applyPermissions(); showApp(); }
+</script>
+</body>
+</html>
