@@ -76,15 +76,17 @@ body {
     flex-direction: column;
 }
 
-.sidebar h3 { color: #94A3B8; text-transform: uppercase; font-size: 12px; margin-bottom: 15px; }
+.sidebar h3 { color: #94A3B8; text-transform: uppercase; font-size: 12px; margin-bottom: 10px; margin-top: 20px; }
+.sidebar h3:first-child { margin-top: 0; }
 
 .sidebar button {
     width: 100%; margin: 4px 0; padding: 12px;
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-    color: #F1F5F9; border-radius: 8px; text-align: left; cursor: pointer;
+    color: #F1F5F9; border-radius: 8px; text-align: left; cursor: pointer; transition: 0.3s;
 }
 
 .sidebar button:hover { background: var(--primary); }
+.sidebar button.active-nav { background: var(--primary); border-color: white; }
 
 .main { flex-grow: 1; padding: 30px; overflow-y: auto; }
 
@@ -92,37 +94,32 @@ body {
 
 .card { background: white; padding: 24px; border-radius: 16px; margin-bottom: 24px; box-shadow: var(--card-shadow); }
 
-/* Multi-select styling */
+/* SCHEDULE TABLE */
+.sched-table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+.sched-table th, .sched-table td { border: 1px solid #E2E8F0; padding: 15px; text-align: center; }
+.sched-table th { background: #F8FAFC; color: #64748B; font-size: 12px; text-transform: uppercase; }
+.sched-table td { font-weight: 500; color: var(--text-dark); }
+
+/* GRID STYLE */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+
 .seat {
     background: white; border-radius: 12px; padding: 15px; text-align: center;
     cursor: pointer; border: 2px solid #E2E8F0; position: relative; min-height: 100px;
-    display: flex; flex-direction: column; justify-content: center;
-    transition: all 0.2s;
+    display: flex; flex-direction: column; justify-content: center; transition: 0.2s;
 }
 
-.seat.selected {
-    border: 2px solid var(--primary);
-    background: #EEF2FF;
-    transform: scale(0.98);
-}
-
-.selection-controls {
-    display: none; 
-    gap: 15px;
-    align-items: center;
-    background: #EEF2FF;
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    border: 1px solid #C7D2FE;
-}
-
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+.seat.selected { border: 2px solid var(--primary); background: #EEF2FF; transform: scale(0.98); }
 
 .status-dot { position: absolute; top: 10px; right: 10px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; }
 .status-active { background: var(--status-active); }
 .status-break { background: var(--status-break); }
 .status-help { background: var(--status-help); }
+
+.selection-controls {
+    display: none; align-items: center; gap: 15px;
+    background: #EEF2FF; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #C7D2FE;
+}
 
 .toast { position: fixed; bottom: 30px; right: 30px; background: var(--sidebar-bg); color: white; padding: 16px 24px; border-radius: 12px; opacity: 0; transition: 0.4s; z-index: 9999; pointer-events: none; }
 .toast.show { opacity: 1; }
@@ -171,47 +168,76 @@ body {
 
     <div class="container">
         <div class="sidebar">
-            <h3>Trainer View</h3>
+            <h3>Navigation</h3>
+            <button id="nav-class" class="active-nav" onclick="showSection('classroom')">Classroom Grid</button>
+            <button id="nav-sched" onclick="showSection('schedule')">Weekly Schedule</button>
+
+            <h3>Trainers</h3>
             <button onclick="switchTrainer('Au')">Au</button>
             <button onclick="switchTrainer('Chanie')">Chanie</button>
             <button onclick="switchTrainer('Leo')">Leo</button>
-            <hr style="border:0; border-top:1px solid #334155; margin:20px 0;">
-            <div id="occupancy" style="background:#1E293B; padding:10px; border-radius:8px; text-align:center; font-size:14px;">0/10 seats</div>
             
             <div style="margin-top:auto; text-align:center;">
-                <img id="trainerImg" src="au.png" style="width:80px; height:80px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
-                <p id="trainerName" style="font-weight:600; margin-top:10px;"></p>
-                <button onclick="handleLogout()" style="background:#EF4444; width:100%; margin-top:10px; border:none; color:white; padding:10px; border-radius:8px; cursor:pointer;">Logout</button>
+                <div id="occupancy" style="background:#1E293B; padding:8px; border-radius:8px; margin-bottom:15px; font-size:12px;">0/10 seats filled</div>
+                <img id="trainerImg" src="au.png" style="width:70px; height:70px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
+                <p id="trainerName" style="font-weight:600; margin-top:10px; margin-bottom:5px;"></p>
+                <button onclick="handleLogout()" style="background:#EF4444; width:100%; border:none; color:white; padding:10px; border-radius:8px; cursor:pointer;">Logout</button>
             </div>
         </div>
 
         <div class="main">
-            <div id="selectionUI" class="selection-controls admin-only">
-                <span id="selectedCount" style="font-weight:600; color:var(--primary);">0 VAs selected</span>
-                <button onclick="moveSelectedVAs()" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;">Move Selected</button>
-                <button onclick="clearSelection()" style="background:#94A3B8; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;">Cancel</button>
-            </div>
+            <div id="section-classroom">
+                <div id="selectionUI" class="selection-controls">
+                    <span id="selectedCount" style="font-weight:600; color:var(--primary);">0 selected</span>
+                    <button onclick="moveSelectedVAs()" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;">Move Selected</button>
+                    <button onclick="clearSelection()" style="background:#94A3B8; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;">Cancel</button>
+                </div>
 
-            <div class="card admin-only" id="assignCard">
-                <h3>Assign New VA</h3>
-                <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <input id="vaName" placeholder="VA Name" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
-                    <input id="agency" placeholder="Agency" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
-                    <select id="trainerSelect" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
-                        <option>Au</option>
-                        <option>Chanie</option>
-                        <option>Leo</option>
-                    </select>
-                    <button onclick="assignVA()" style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Assign VA</button>
+                <div class="card admin-only">
+                    <h3>Assign New VA</h3>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <input id="vaName" placeholder="VA Name" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
+                        <input id="agency" placeholder="Agency" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
+                        <select id="trainerSelect" style="padding:10px; border-radius:8px; border:1px solid #CBD5E1;">
+                            <option>Au</option><option>Chanie</option><option>Leo</option>
+                        </select>
+                        <button onclick="assignVA()" style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Assign VA</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3 id="classTitle" style="margin:0;">Classroom</h3>
+                        <button class="admin-only" onclick="exportToCSV()" style="background:#64748B; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">Export CSV</button>
+                    </div>
+                    <div class="grid" id="seatGrid"></div>
                 </div>
             </div>
 
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 id="classTitle" style="margin:0;">Classroom</h3>
-                    <button class="admin-only" id="exportBtn" onclick="exportToCSV()" style="background:#64748B; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">Export CSV</button>
+            <div id="section-schedule" style="display:none;">
+                <div class="card">
+                    <h3>Weekly Class Schedule</h3>
+                    <p id="scheduleSub" style="color:#64748B; margin-top:-10px;">Viewing schedule for the selected trainer.</p>
+                    <table class="sched-table">
+                        <thead>
+                            <tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat/Sun</th></tr>
+                        </thead>
+                        <tbody id="scheduleBody"></tbody>
+                    </table>
                 </div>
-                <div class="grid" id="seatGrid"></div>
+
+                <div class="card admin-only">
+                    <h3>Update Schedule (Admin)</h3>
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px;">
+                        <div><label style="font-size:12px;">Mon</label><input id="sMon" placeholder="9AM - 5PM"></div>
+                        <div><label style="font-size:12px;">Tue</label><input id="sTue" placeholder="9AM - 5PM"></div>
+                        <div><label style="font-size:12px;">Wed</label><input id="sWed" placeholder="9AM - 5PM"></div>
+                        <div><label style="font-size:12px;">Thu</label><input id="sThu" placeholder="9AM - 5PM"></div>
+                        <div><label style="font-size:12px;">Fri</label><input id="sFri" placeholder="9AM - 5PM"></div>
+                        <div><label style="font-size:12px;">Weekend</label><input id="sSat" placeholder="OFF"></div>
+                    </div>
+                    <button onclick="saveSchedule()" style="background:var(--primary); color:white; border:none; padding:12px 24px; border-radius:8px; margin-top:20px; cursor:pointer; font-weight:600;">Save All Times</button>
+                </div>
             </div>
         </div>
     </div>
@@ -221,20 +247,17 @@ body {
     <div class="modal-box">
         <h3 id="actionTitle"></h3>
         <div id="adminControls" class="admin-only">
-            <p>Set Status:</p>
+            <p>Update Status:</p>
             <div style="display:flex; gap:10px; justify-content:center; margin-bottom:20px;">
                 <button class="status-active" style="width:40px; height:40px; border-radius:50%;" onclick="setStatus('active')"></button>
                 <button class="status-break" style="width:40px; height:40px; border-radius:50%;" onclick="setStatus('break')"></button>
                 <button class="status-help" style="width:40px; height:40px; border-radius:50%;" onclick="setStatus('help')"></button>
             </div>
-            <button onclick="openEditName()" style="background:var(--primary)">Edit Name</button>
-            <button onclick="openMove()" style="background:#8B5CF6">Move VA</button>
-            <button onclick="deleteVA()" style="background:#EF4444">Remove VA</button>
-            <p style="font-size: 11px; color: #94A3B8; margin-top: 10px;">Tip: Click a seat on the dashboard to select multiple VAs.</p>
+            <button onclick="openEditName()" style="background:var(--primary)">Edit VA Details</button>
+            <button onclick="openMove()" style="background:#8B5CF6">Move to Trainer</button>
+            <button onclick="deleteVA()" style="background:#EF4444">Remove from Class</button>
         </div>
-        <div id="vaView" style="display:none; color: #64748B; padding: 20px;">
-            Read-only mode. Trainers can update this profile.
-        </div>
+        <div id="vaView" style="display:none; color: #64748B; padding: 20px;">Read-only mode. Trainers manage these profiles.</div>
         <button onclick="closeAction()" style="background:#64748B">Close</button>
     </div>
 </div>
@@ -242,11 +265,33 @@ body {
 <div id="toast" class="toast"></div>
 
 <script>
-/* ================= AUTH & ROLE LOGIC ================= */
-let accounts = JSON.parse(localStorage.getItem("db_accounts")) || {
-    admin: { pass: "admin123", role: "admin" } 
+/* ================= DATA INITIALIZATION ================= */
+let accounts = JSON.parse(localStorage.getItem("db_accounts")) || { admin: { pass: "admin123", role: "admin" } };
+let trainers = JSON.parse(localStorage.getItem("va_data")) || { Au: [], Chanie: [], Leo: [] };
+let schedules = JSON.parse(localStorage.getItem("va_schedules")) || { 
+    Au: ["TBA","TBA","TBA","TBA","TBA","OFF"], 
+    Chanie: ["TBA","TBA","TBA","TBA","TBA","OFF"], 
+    Leo: ["TBA","TBA","TBA","TBA","TBA","OFF"] 
 };
 
+let currentTrainer = "Au";
+let selectedIndex = null;
+let selectedIndices = [];
+const trainerImages = { Au: "au.png", Chanie: "chanie.png", Leo: "leo.png" };
+
+function save() {
+    localStorage.setItem("va_data", JSON.stringify(trainers));
+    localStorage.setItem("va_schedules", JSON.stringify(schedules));
+    localStorage.setItem("db_accounts", JSON.stringify(accounts));
+}
+
+function toast(msg) {
+    let t = document.getElementById("toast");
+    t.innerText = msg; t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+/* ================= AUTH ================= */
 function toggleAuth(type) {
     document.getElementById('loginCard').style.display = type === 'login' ? 'block' : 'none';
     document.getElementById('signupCard').style.display = type === 'signup' ? 'block' : 'none';
@@ -256,13 +301,9 @@ function handleSignup() {
     const user = document.getElementById('regUser').value;
     const pass = document.getElementById('regPass').value;
     const role = document.getElementById('regRole').value;
-    if(!user || !pass) return alert("Please fill all fields");
-    if(accounts[user]) return alert("Username taken");
-
+    if(!user || !pass) return alert("Fill all fields");
     accounts[user] = { pass, role };
-    localStorage.setItem("db_accounts", JSON.stringify(accounts));
-    alert("Account created!");
-    toggleAuth('login');
+    save(); alert("Created!"); toggleAuth('login');
 }
 
 function handleLogin() {
@@ -273,64 +314,34 @@ function handleLogin() {
         sessionStorage.setItem("userRole", accounts[user].role);
         applyPermissions();
         showApp();
-    } else {
-        alert("Invalid credentials!");
-    }
+    } else { alert("Invalid credentials"); }
 }
 
 function applyPermissions() {
     const role = sessionStorage.getItem("userRole");
-    const adminElements = document.querySelectorAll('.admin-only');
-    const badge = document.getElementById('userRoleBadge');
-    
-    if(role === 'admin') {
-        adminElements.forEach(el => el.style.display = 'block');
-        badge.innerText = "ADMIN ACCESS";
-        document.getElementById('adminControls').style.display = 'block';
-        document.getElementById('vaView').style.display = 'none';
-    } else {
-        adminElements.forEach(el => el.style.display = 'none');
-        badge.innerText = "VA VIEW ONLY";
-        document.getElementById('adminControls').style.display = 'none';
-        document.getElementById('vaView').style.display = 'block';
-    }
+    const adminEls = document.querySelectorAll('.admin-only');
+    document.getElementById('userRoleBadge').innerText = role === 'admin' ? "ADMIN ACCESS" : "VA VIEW ONLY";
+    adminEls.forEach(el => el.style.display = role === 'admin' ? 'block' : 'none');
+    document.getElementById('vaView').style.display = role === 'admin' ? 'none' : 'block';
 }
 
-function handleLogout() {
-    sessionStorage.clear();
-    location.reload();
+function handleLogout() { sessionStorage.clear(); location.reload(); }
+
+/* ================= NAVIGATION ================= */
+function showSection(sect) {
+    document.getElementById('section-classroom').style.display = sect === 'classroom' ? 'block' : 'none';
+    document.getElementById('section-schedule').style.display = sect === 'schedule' ? 'block' : 'none';
+    document.getElementById('nav-class').className = sect === 'classroom' ? 'active-nav' : '';
+    document.getElementById('nav-sched').className = sect === 'schedule' ? 'active-nav' : '';
+    if(sect === 'schedule') renderSchedule();
 }
 
-function showApp() {
-    document.getElementById('authContainer').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'block';
-    render();
-}
-
-/* ================= DASHBOARD LOGIC ================= */
-let trainers = JSON.parse(localStorage.getItem("va_data")) || { Au: [], Chanie: [], Leo: [] };
-let currentTrainer = "Au";
-let selectedIndex = null;
-let selectedIndices = []; // New for multi-select
-const trainerImages = { Au: "au.png", Chanie: "chanie.png", Leo: "leo.png" };
-
-function save() { localStorage.setItem("va_data", JSON.stringify(trainers)); }
-
-function toast(msg) {
-    let t = document.getElementById("toast");
-    t.innerText = msg; t.classList.add("show");
-    setTimeout(() => t.classList.remove("show"), 2500);
-}
-
+/* ================= CLASSROOM GRID ================= */
 function switchTrainer(t) {
     currentTrainer = t;
     clearSelection();
     render();
-}
-
-function updateTrainerUI() {
-    document.getElementById("trainerImg").src = trainerImages[currentTrainer];
-    document.getElementById("trainerName").innerText = currentTrainer;
+    if(document.getElementById('section-schedule').style.display === 'block') renderSchedule();
 }
 
 function render() {
@@ -338,58 +349,43 @@ function render() {
     grid.innerHTML = "";
     let list = trainers[currentTrainer];
     document.getElementById("classTitle").innerText = `Trainer: ${currentTrainer}`;
+    document.getElementById("trainerName").innerText = currentTrainer;
+    document.getElementById("trainerImg").src = trainerImages[currentTrainer];
+    
     let filled = 0;
-
     for (let i = 0; i < 10; i++) {
         let seat = document.createElement("div");
         seat.className = "seat";
-        
-        // Highlight if selected in multi-select mode
         if (selectedIndices.includes(i)) seat.classList.add("selected");
-
+        
         let va = list[i];
         if (va) {
             seat.innerHTML = `<div class="status-dot status-${va.status || 'active'}"></div>
-                             <b>${va.name}</b><br><span style="font-size:12px; color:#64748B;">${va.agency}</span>`;
-            
+                             <b>${va.name}</b><br><small style="color:#64748B">${va.agency}</small>`;
             seat.onclick = () => handleSeatClick(i);
             filled++;
         } else {
             seat.style.borderStyle = "dashed";
             seat.innerHTML = "<span style='color:#CBD5E1'>Empty</span>";
-            seat.onclick = null;
         }
         grid.appendChild(seat);
     }
-    document.getElementById("occupancy").innerText = `${filled}/10 seats`;
-    updateTrainerUI();
+    document.getElementById("occupancy").innerText = `${filled}/10 seats filled`;
 }
 
-/* ================= CLICK & MULTI-SELECT LOGIC ================= */
 function handleSeatClick(index) {
     const role = sessionStorage.getItem("userRole");
-    
-    // If Admin, toggle multi-selection
     if (role === 'admin') {
         const pos = selectedIndices.indexOf(index);
-        if (pos > -1) {
-            selectedIndices.splice(pos, 1);
-        } else {
-            selectedIndices.push(index);
-        }
-        
-        // If only 1 is selected, we can still show the single action modal
-        // but let's prioritize the multi-select UI for clarity
+        if (pos > -1) selectedIndices.splice(pos, 1);
+        else selectedIndices.push(index);
         updateSelectionUI();
-        
-        // Optional: If you want to open the modal for single edit when only 1 is selected:
         if(selectedIndices.length === 1) {
             selectedIndex = index;
             document.getElementById("actionModal").classList.add("active");
             document.getElementById("actionTitle").innerText = trainers[currentTrainer][index].name;
         }
     } else {
-        // VA view just shows details
         selectedIndex = index;
         document.getElementById("actionModal").classList.add("active");
         document.getElementById("actionTitle").innerText = trainers[currentTrainer][index].name;
@@ -398,126 +394,97 @@ function handleSeatClick(index) {
 
 function updateSelectionUI() {
     const ui = document.getElementById("selectionUI");
-    const countText = document.getElementById("selectedCount");
-    
-    if (selectedIndices.length > 0) {
-        ui.style.display = "flex";
-        countText.innerText = `${selectedIndices.length} VA(s) selected`;
-    } else {
-        ui.style.display = "none";
-    }
+    ui.style.display = selectedIndices.length > 0 ? "flex" : "none";
+    document.getElementById("selectedCount").innerText = `${selectedIndices.length} VA(s) selected`;
     render();
 }
 
-function clearSelection() {
-    selectedIndices = [];
-    if(document.getElementById("selectionUI")) {
-        document.getElementById("selectionUI").style.display = "none";
-    }
-    render();
-}
+function clearSelection() { selectedIndices = []; updateSelectionUI(); }
 
 function moveSelectedVAs() {
-    if (selectedIndices.length === 0) return;
-
-    let targetTrainer = prompt("Move selected VAs to which trainer? (Au, Chanie, or Leo)", currentTrainer);
-    
-    if (targetTrainer && trainers[targetTrainer]) {
-        if (targetTrainer === currentTrainer) return toast("Already with this trainer");
-        
-        if (trainers[targetTrainer].length + selectedIndices.length > 10) {
-            return toast(`Target trainer only has ${10 - trainers[targetTrainer].length} seats left.`);
-        }
-
-        // Sort indices descending to splice safely from the array
-        selectedIndices.sort((a, b) => b - a);
-        
-        selectedIndices.forEach(idx => {
-            let vaToMove = trainers[currentTrainer].splice(idx, 1)[0];
-            trainers[targetTrainer].push(vaToMove);
+    let target = prompt("Move selected VAs to: (Au, Chanie, Leo)", currentTrainer);
+    if(target && trainers[target]) {
+        if(trainers[target].length + selectedIndices.length > 10) return toast("Target full!");
+        selectedIndices.sort((a,b)=>b-a).forEach(idx => {
+            trainers[target].push(trainers[currentTrainer].splice(idx,1)[0]);
         });
-
-        clearSelection();
-        save();
-        render();
-        toast(`Moved successfully to ${targetTrainer}`);
-    } else if (targetTrainer) {
-        toast("Invalid trainer name");
+        clearSelection(); save(); render(); toast("VAs Moved Successfully");
     }
 }
 
-/* ================= SINGLE VA ACTIONS ================= */
+/* ================= SCHEDULE LOGIC ================= */
+function renderSchedule() {
+    const s = schedules[currentTrainer];
+    document.getElementById('scheduleSub').innerText = `Weekly shifts for Trainer ${currentTrainer}`;
+    document.getElementById('scheduleBody').innerHTML = `<tr>
+        <td>${s[0]}</td><td>${s[1]}</td><td>${s[2]}</td><td>${s[3]}</td><td>${s[4]}</td><td>${s[5]}</td>
+    </tr>`;
+    // Pre-fill admin inputs
+    document.getElementById('sMon').value = s[0];
+    document.getElementById('sTue').value = s[1];
+    document.getElementById('sWed').value = s[2];
+    document.getElementById('sThu').value = s[3];
+    document.getElementById('sFri').value = s[4];
+    document.getElementById('sSat').value = s[5];
+}
+
+function saveSchedule() {
+    schedules[currentTrainer] = [
+        document.getElementById('sMon').value || "TBA",
+        document.getElementById('sTue').value || "TBA",
+        document.getElementById('sWed').value || "TBA",
+        document.getElementById('sThu').value || "TBA",
+        document.getElementById('sFri').value || "TBA",
+        document.getElementById('sSat').value || "OFF"
+    ];
+    save(); renderSchedule(); toast("Schedule Updated");
+}
+
+/* ================= ACTIONS ================= */
 function setStatus(s) {
-    if (selectedIndex !== null && trainers[currentTrainer][selectedIndex]) {
+    if (selectedIndex !== null) {
         trainers[currentTrainer][selectedIndex].status = s;
         save(); render(); closeAction(); toast("Status Updated");
     }
 }
 
 function assignVA() {
-    let name = document.getElementById("vaName").value;
-    let agency = document.getElementById("agency").value;
-    let trainer = document.getElementById("trainerSelect").value;
-    if(!name || !agency) return toast("Fill all fields");
-    if(trainers[trainer].length >= 10) return toast("Trainer class is full!");
-    
-    trainers[trainer].push({ name, agency, status: 'active' });
-    save(); render(); toast("VA Added");
+    let n = document.getElementById("vaName").value, a = document.getElementById("agency").value, t = document.getElementById("trainerSelect").value;
+    if(!n || !a) return toast("Fill all fields");
+    if(trainers[t].length >= 10) return toast("Class Full");
+    trainers[t].push({name:n, agency:a, status:'active'});
+    save(); render(); toast("VA Assigned");
     document.getElementById("vaName").value = ""; document.getElementById("agency").value = "";
 }
 
 function openEditName() {
-    let currentVA = trainers[currentTrainer][selectedIndex];
-    let newName = prompt("Enter new name for the VA:", currentVA.name);
-    let newAgency = prompt("Enter new agency for the VA:", currentVA.agency);
-
-    if (newName && newAgency) {
-        trainers[currentTrainer][selectedIndex].name = newName;
-        trainers[currentTrainer][selectedIndex].agency = newAgency;
-        save(); render(); closeAction(); toast("VA Details Updated");
-    }
+    let va = trainers[currentTrainer][selectedIndex];
+    let n = prompt("New Name:", va.name), ag = prompt("New Agency:", va.agency);
+    if(n && ag) { va.name = n; va.agency = ag; save(); render(); closeAction(); }
 }
 
 function openMove() {
-    let targetTrainer = prompt("Move to which trainer? (Au, Chanie, or Leo)", currentTrainer);
-    if (targetTrainer && trainers[targetTrainer]) {
-        if (targetTrainer === currentTrainer) return toast("Already with this trainer");
-        if (trainers[targetTrainer].length >= 10) return toast("Target trainer is full");
-
-        let vaToMove = trainers[currentTrainer].splice(selectedIndex, 1)[0];
-        trainers[targetTrainer].push(vaToMove);
-        save(); render(); closeAction(); toast(`Moved to ${targetTrainer}`);
+    let target = prompt("Target Trainer:", currentTrainer);
+    if(target && trainers[target]) {
+        trainers[target].push(trainers[currentTrainer].splice(selectedIndex,1)[0]);
+        save(); render(); closeAction(); toast("Moved");
     }
 }
 
-function deleteVA(){ 
-    if(confirm("Are you sure you want to remove this VA?")) {
-        trainers[currentTrainer].splice(selectedIndex,1); 
-        save(); render(); closeAction(); toast("Deleted"); 
-    }
+function deleteVA() {
+    if(confirm("Remove VA?")) { trainers[currentTrainer].splice(selectedIndex,1); save(); render(); closeAction(); }
 }
 
 function exportToCSV() {
-    let csv = "Name,Agency,Status\n";
-    trainers[currentTrainer].forEach(v => { csv += `${v.name},${v.agency},${v.status}\n`; });
-    let blob = new Blob([csv], { type: 'text/csv' });
-    let url = window.URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url; a.download = `${currentTrainer}_Roster.csv`; a.click();
+    let csv = "Name,Agency,Status\n" + trainers[currentTrainer].map(v => `${v.name},${v.agency},${v.status}`).join("\n");
+    let a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = `${currentTrainer}_Roster.csv`; a.click();
 }
 
-function closeAction(){ 
-    document.getElementById("actionModal").classList.remove("active"); 
-    // We don't clear selectedIndices here so the user can continue multi-selecting
-    // but we do clear the single index
-    selectedIndex = null; 
-}
+function closeAction() { document.getElementById("actionModal").classList.remove("active"); selectedIndex = null; }
+function showApp() { document.getElementById('authContainer').style.display='none'; document.getElementById('mainApp').style.display='block'; render(); }
 
-// Check Login State on load
-if(sessionStorage.getItem("isLoggedIn") === "true") {
-    applyPermissions();
-    showApp();
-}
+if(sessionStorage.getItem("isLoggedIn") === "true") { applyPermissions(); showApp(); }
 </script>
 </body>
 </html>
