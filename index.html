@@ -88,6 +88,45 @@ body {
 .sidebar button:hover { background: var(--primary); }
 .sidebar button.active-nav { background: var(--primary); border-color: white; }
 
+/* NOTES SECTION STYLE */
+.notes-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 20px;
+    font-size: 13px;
+    display: none; /* Shown when VA selected */
+}
+
+.notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    color: #94A3B8;
+}
+
+.notes-content {
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 6px;
+    min-height: 50px;
+    max-height: 100px;
+    overflow-y: auto;
+    word-wrap: break-word;
+    color: #E2E8F0;
+    margin-bottom: 8px;
+}
+
+.notes-actions button {
+    padding: 4px 8px;
+    font-size: 10px;
+    width: auto;
+    display: inline-block;
+    margin-right: 5px;
+}
+
 .main { flex-grow: 1; padding: 30px; overflow-y: auto; }
 
 .admin-only { display: none; }
@@ -177,6 +216,18 @@ body {
             <button onclick="switchTrainer('Chanie')">Chanie</button>
             <button onclick="switchTrainer('Leo')">Leo</button>
             
+            <div id="notesPanel" class="notes-panel">
+                <div class="notes-header">
+                    <span style="font-weight:700">VA NOTES</span>
+                    <span id="noteVaName" style="font-size:11px; opacity:0.8"></span>
+                </div>
+                <div id="noteDisplay" class="notes-content">Select a VA to see notes...</div>
+                <div class="notes-actions admin-only">
+                    <button onclick="editNote()" style="background:var(--primary)">Edit</button>
+                    <button onclick="deleteNote()" style="background:#EF4444">Clear</button>
+                </div>
+            </div>
+
             <div style="margin-top:auto; text-align:center;">
                 <div id="occupancy" style="background:#1E293B; padding:8px; border-radius:8px; margin-bottom:15px; font-size:12px;">0/10 seats filled</div>
                 <img id="trainerImg" src="au.png" style="width:70px; height:70px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
@@ -309,7 +360,6 @@ function toast(msg) {
     setTimeout(() => t.classList.remove("show"), 2500);
 }
 
-/* ================= CUSTOM SHIFT TOGGLE ================= */
 function toggleCustomShift(val) {
     const customInput = document.getElementById('vaCustomShift');
     customInput.style.display = (val === 'CUSTOM') ? 'block' : 'none';
@@ -402,9 +452,52 @@ function render() {
     document.getElementById("occupancy").innerText = `${filled}/10 seats filled`;
 }
 
+/* ================= NOTE LOGIC ================= */
+function updateNoteDisplay(index) {
+    const va = trainers[currentTrainer][index];
+    const panel = document.getElementById("notesPanel");
+    const display = document.getElementById("noteDisplay");
+    const nameLabel = document.getElementById("noteVaName");
+    
+    if (va) {
+        panel.style.display = "block";
+        nameLabel.innerText = `(${va.name})`;
+        display.innerText = va.note || "No notes added yet.";
+    } else {
+        panel.style.display = "none";
+    }
+}
+
+function editNote() {
+    if (selectedIndex === null) return;
+    const va = trainers[currentTrainer][selectedIndex];
+    const newNote = prompt("Enter note for " + va.name + ":", va.note || "");
+    if (newNote !== null) {
+        va.note = newNote;
+        save();
+        updateNoteDisplay(selectedIndex);
+        toast("Note Saved");
+    }
+}
+
+function deleteNote() {
+    if (selectedIndex === null) return;
+    if (confirm("Clear notes for this VA?")) {
+        trainers[currentTrainer][selectedIndex].note = "";
+        save();
+        updateNoteDisplay(selectedIndex);
+        toast("Note Cleared");
+    }
+}
+
+/* ================= SEAT CLICKS ================= */
 function handleSeatClick(index) {
     const role = sessionStorage.getItem("userRole");
     selectedIndex = index;
+    
+    // Load notes for the clicked VA
+    updateNoteDisplay(index);
+
     if (role === 'admin') {
         const pos = selectedIndices.indexOf(index);
         if (pos > -1) {
@@ -431,7 +524,11 @@ function updateSelectionUI() {
     render();
 }
 
-function clearSelection() { selectedIndices = []; updateSelectionUI(); }
+function clearSelection() { 
+    selectedIndices = []; 
+    updateSelectionUI(); 
+    document.getElementById("notesPanel").style.display = "none"; 
+}
 
 function moveSelectedVAs() {
     let target = prompt("Move selected VAs to: (Au, Chanie, Leo)", currentTrainer);
@@ -484,29 +581,25 @@ function assignVA() {
         a = document.getElementById("agency").value,
         t = document.getElementById("trainerSelect").value;
     
-    // Get shift value: either dropdown or custom input
     let sSelect = document.getElementById("vaShiftSelect").value;
     let s = (sSelect === 'CUSTOM') ? document.getElementById("vaCustomShift").value : sSelect;
     
     if(!n || !a || (sSelect === 'CUSTOM' && !s)) return toast("Fill all fields");
     if(trainers[t].length >= 10) return toast("Class Full");
     
-    trainers[t].push({name:n, agency:a, status:'active', shift:s});
+    trainers[t].push({name:n, agency:a, status:'active', shift:s, note:''});
     save(); render(); toast("VA Assigned");
     
-    // Reset fields
     document.getElementById("vaName").value = ""; 
     document.getElementById("agency").value = "";
     document.getElementById("vaCustomShift").value = "";
-    document.getElementById("vaShiftSelect").value = "08:00 AM - 09:00 AM";
-    toggleCustomShift("08:00 AM - 09:00 AM");
 }
 
 function openEditName() {
     let va = trainers[currentTrainer][selectedIndex];
     let n = prompt("Edit VA Name:", va.name);
     let ag = prompt("Edit Agency:", va.agency);
-    let sh = prompt("Edit Shift (e.g. 09:00 AM - 10:00 AM):", va.shift || "");
+    let sh = prompt("Edit Shift:", va.shift || "");
     
     if(n !== null && ag !== null) { 
         va.name = n || va.name; 
@@ -526,16 +619,22 @@ function openMove() {
 }
 
 function deleteVA() {
-    if(confirm("Remove VA from class?")) { trainers[currentTrainer].splice(selectedIndex,1); save(); render(); closeAction(); }
+    if(confirm("Remove VA from class?")) { 
+        trainers[currentTrainer].splice(selectedIndex,1); 
+        save(); 
+        render(); 
+        closeAction(); 
+        document.getElementById("notesPanel").style.display = "none";
+    }
 }
 
 function exportToCSV() {
-    let csv = "Name,Agency,Shift,Status\n" + trainers[currentTrainer].map(v => `"${v.name}","${v.agency}","${v.shift || 'N/A'}","${v.status}"`).join("\n");
+    let csv = "Name,Agency,Shift,Status,Notes\n" + trainers[currentTrainer].map(v => `"${v.name}","${v.agency}","${v.shift || 'N/A'}","${v.status}","${v.note || ''}"`).join("\n");
     let a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
     a.download = `${currentTrainer}_Roster.csv`; a.click();
 }
 
-function closeAction() { document.getElementById("actionModal").classList.remove("active"); selectedIndex = null; }
+function closeAction() { document.getElementById("actionModal").classList.remove("active"); }
 function showApp() { document.getElementById('authContainer').style.display='none'; document.getElementById('mainApp').style.display='block'; render(); }
 
 if(sessionStorage.getItem("isLoggedIn") === "true") { applyPermissions(); showApp(); }
